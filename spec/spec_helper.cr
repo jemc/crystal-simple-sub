@@ -16,7 +16,7 @@ class SimpleSub::TypeExpectation
   end
 
   def actual_type_string(term : Term)
-    Typer.new.type_term(term).show
+    Typer.new.infer_type(term).show
   end
 
   def match(term)

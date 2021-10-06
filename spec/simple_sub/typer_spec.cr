@@ -6,5 +6,7 @@ describe Typer do
   it "determines the obvious type of some basic terms" do
     TermLit.new(42)
       .should have_type("int")
+    TermLam.new("x", TermLit.new(42))
+      .should have_type("(T -> int)")
   end
 end

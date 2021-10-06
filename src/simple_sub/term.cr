@@ -7,4 +7,12 @@ module SimpleSub
     def initialize(@value)
     end
   end
+
+  struct TermLam < Term
+    property param_name : String # TODO: extend to allow multiple params
+    property body : StructRef(Term)
+    def initialize(@param_name, body)
+      @body = StructRef(Term).new(body)
+    end
+  end
 end
