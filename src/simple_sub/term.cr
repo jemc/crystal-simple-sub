@@ -8,6 +8,12 @@ module SimpleSub
     end
   end
 
+  struct TermVar < Term
+    property name : String
+    def initialize(@name)
+    end
+  end
+
   struct TermLam < Term
     property param_name : String # TODO: extend to allow multiple params
     property body : StructRef(Term)

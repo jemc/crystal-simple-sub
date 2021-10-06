@@ -16,7 +16,7 @@ class SimpleSub::TypeExpectation
   end
 
   def actual_type_string(term : Term)
-    Typer.new.infer_type(term).show
+    CompactType.simplified_from(Typer.new.infer_type(term)).show
   end
 
   def match(term)
