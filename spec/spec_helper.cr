@@ -19,14 +19,36 @@ class SimpleSub::TypeExpectation
     CompactType.simplified_from(Typer.new.infer_type(term)).show
   end
 
+  def pre_simplification_type_information(term : Term)
+    String.build { |io|
+      pre_type = Typer.new.infer_type(term)
+
+      io << pre_type.show
+
+      analysis = CompactType::Analysis.new
+      type = CompactType.from(pre_type, true, analysis)
+
+      analysis.show_all_vars(io)
+    }
+  end
+
   def match(term)
     @type_string == actual_type_string(term)
   end
 
   def failure_message(term : Term)
     <<-MSG
-      Expected type: #{@type_string}
-           got type: #{actual_type_string(term)}
+    #{term.pretty_inspect}
+
+    ---
+
+    Prior to simplification, the type information was:
+    #{pre_simplification_type_information(term)}
+
+    ---
+
+    Expected type: #{@type_string}
+          got type: #{actual_type_string(term)}
     MSG
   end
 
