@@ -1,5 +1,7 @@
 module SimpleSub
   abstract struct Term
+    # Convenience method for more succinct instantiation in tests.
+    def self.[](*args); new(*args) end
   end
 
   struct TermLit < Term
