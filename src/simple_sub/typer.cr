@@ -66,7 +66,7 @@ module SimpleSub
         # If both sides are functions, they are compatible if and only if
         # the return types and parameter types are compatible with one another.
         # Return types are covariant and parameter types are contravariant.
-        constrain(sub.ret.value, sub.ret.value)
+        constrain(sub.ret.value, sup.ret.value)
         constrain(sup.param.value, sub.param.value)
       # elsif sub.is_a?(TypeRecord) && sup.is_a?(TypeRecord)
       #   raise NotImplementedError.new("constrain TypeRecord")

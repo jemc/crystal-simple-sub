@@ -12,5 +12,7 @@ describe Typer do
       .should have_type("(α1 -> α1)")
     TermLam.new("x", TermApp.new(TermVar.new("x"), TermLit.new(42)))
       .should have_type("((int -> α2) -> α2)")
+    TermApp.new(TermLam.new("x", TermVar.new("x")), TermLit.new(42))
+      .should have_type("int")
   end
 end
