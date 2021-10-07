@@ -1,5 +1,9 @@
 module SimpleSub
   struct CompactType
+    alias TypeVariable = Typer::TypeVariable
+    alias TypePrimitive = Typer::TypePrimitive
+    alias TypeFunction = Typer::TypeFunction
+
     property vars : Set(TypeVariable)?
     property prims : Set(TypePrimitive)?
     property rec : Hash(String, CompactType)?
@@ -37,7 +41,7 @@ module SimpleSub
     alias RecursiveVars = Hash(TypeVariable, CompactType)
 
     protected def mutably_accept(
-      input : Type,
+      input : Typer::Type,
       polarity = true,
       recursive_vars = RecursiveVars.new,
       parents = Set(TypeVariable).new,
@@ -71,7 +75,7 @@ module SimpleSub
     end
 
     def self.from(
-      input : Type,
+      input : Typer::Type,
       polarity = true,
       recursive_vars = RecursiveVars.new,
       parents = Set(TypeVariable).new,
@@ -79,7 +83,7 @@ module SimpleSub
       new.mutably_accept(input, polarity, parents)
     end
 
-    def self.simplified_from(input : Type, polarity = true)
+    def self.simplified_from(input : Typer::Type, polarity = true)
       # Begin by compacting the input type, also gaining access to the set
       # of recursive variables present in the input type as it compacts.
       orig_recursive_vars = RecursiveVars.new
@@ -96,7 +100,7 @@ module SimpleSub
       # TODO: recursive_vars
 
       # TODO: Document
-      co_occurrences = {} of {Bool, TypeVariable} => Set(Type)
+      co_occurrences = {} of {Bool, TypeVariable} => Set(Typer::Type)
 
       type.analyze_co_occurrences(
         polarity, orig_recursive_vars, all_vars, co_occurrences,
@@ -131,14 +135,14 @@ module SimpleSub
       polarity = true,
       orig_recursive_vars = RecursiveVars.new,
       all_vars = Set(TypeVariable),
-      co_occurrences = Hash({Bool, TypeVariable}, Set(Type)),
+      co_occurrences = Hash({Bool, TypeVariable}, Set(Typer::Type)),
     )
       type = self
 
       type.vars.try(&.each { |var|
         all_vars.add(var)
 
-        new_occs = Set(Type).new
+        new_occs = Set(Typer::Type).new
         type.vars.try(&.each { |v| new_occs.add(v) })
         type.prims.try(&.each { |p| new_occs.add(p) })
 

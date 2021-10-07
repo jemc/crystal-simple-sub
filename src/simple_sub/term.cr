@@ -21,4 +21,13 @@ module SimpleSub
       @body = StructRef(Term).new(body)
     end
   end
+
+  struct TermApp < Term
+    property fn : StructRef(Term)
+    property arg : StructRef(Term) # TODO: extend to allow multiple args
+    def initialize(fn, arg)
+      @fn = StructRef(Term).new(fn)
+      @arg = StructRef(Term).new(arg)
+    end
+  end
 end

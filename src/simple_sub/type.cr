@@ -1,4 +1,4 @@
-module SimpleSub
+class SimpleSub::Typer
   abstract struct Type
     abstract def level : Int32
 
@@ -6,16 +6,6 @@ module SimpleSub
     def show
       String.build { |io| show(io) }
     end
-  end
-
-  struct TypeTop < Type
-    def level : Int32; 0 end
-    def show(io : IO); io << "T" end
-  end
-
-  struct TypeBottom < Type
-    def level : Int32; 0 end
-    def show(io : IO); io << "⊥" end
   end
 
   struct TypePrimitive < Type
@@ -42,7 +32,7 @@ module SimpleSub
     end
 
     def level : Int32
-      Math.max(@param, @ret)
+      Math.max(@param.level, @ret.level)
     end
 
     def show(io : IO)
@@ -61,61 +51,13 @@ module SimpleSub
     property level : Int32
     property lower_bounds = [] of Type
     property upper_bounds = [] of Type
-    def initialize(@uid, @level, @lower_bounds = nil, @upper_bounds = nil)
+    def initialize(@uid, @level)
     end
 
     def show(io : IO)
       io << "α"
       uid.inspect(io)
       io << "'" * @level
-    end
-  end
-
-  struct TypeUnion < Type
-    property members = [] of Type
-    def initialize(@members)
-    end
-
-    def level : Int32
-      @members.map(&.level).max
-    end
-
-    def show(io : IO)
-      raise NotImplementedError.new("TODO: #{self.class}.show")
-    end
-
-    def self.from(members)
-      if members.nil? || members.empty?
-        TypeBottom.new
-      elsif members.size == 1
-        members.first
-      else
-        new(members)
-      end
-    end
-  end
-
-  struct TypeInter < Type
-    property members = [] of Type
-    def initialize(@members)
-    end
-
-    def level : Int32
-      @members.map(&.level).max
-    end
-
-    def show(io : IO)
-      raise NotImplementedError.new("TODO: #{self.class}.show")
-    end
-
-    def self.from(members)
-      if members.nil? || members.empty?
-        TypeTop.new
-      elsif members.size == 1
-        members.first
-      else
-        new(members)
-      end
     end
   end
 end
