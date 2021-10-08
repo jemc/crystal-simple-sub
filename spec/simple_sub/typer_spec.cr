@@ -32,8 +32,16 @@ describe Typer do
   # These test cases are identical to those found here:
   # - https://github.com/LPTK/simple-sub/blob/4ec1af41dc3796622fa16ab3ca331d10ee2a12d4/shared/src/test/scala/simplesub/TypingTests.scala#L24-L42
   it "infers types related to booleans" do
-    TermVar["true"].should have_type("bool")
-    TermApp[TermVar["not"], TermVar["true"]].should have_type("bool")
+    TermVar["true"]
+      .should have_type("bool")
+    TermApp[TermVar["not"], TermVar["true"]]
+      .should have_type("bool")
+    TermLam["x", TermApp[TermVar["not"], TermVar["x"]]]
+      .should have_type("(bool -> bool)")
+    TermApp[
+      TermLam["x", TermApp[TermVar["not"], TermVar["x"]]],
+      TermVar["true"]
+    ].should have_type("bool")
 
     # TODO: The rest of these tests.
   end
