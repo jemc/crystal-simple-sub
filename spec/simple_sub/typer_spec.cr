@@ -25,5 +25,16 @@ describe Typer do
       # Which one we actually arrive at is dependent on order of execution
       # while unifying variables in the simplification algorithm.
     ].should have_type("((α2 -> α2 & α4) -> (α2 -> α4))")
+
+    # TODO: doTest("let twice = fun f -> fun x -> f (f x) in twice", "('a ∨ 'b -> 'a) -> 'b -> 'a")
+  end
+
+  # These test cases are identical to those found here:
+  # - https://github.com/LPTK/simple-sub/blob/4ec1af41dc3796622fa16ab3ca331d10ee2a12d4/shared/src/test/scala/simplesub/TypingTests.scala#L24-L42
+  it "infers types related to booleans" do
+    TermVar["true"].should have_type("bool")
+    TermApp[TermVar["not"], TermVar["true"]].should have_type("bool")
+
+    # TODO: The rest of these tests.
   end
 end

@@ -3,10 +3,14 @@ module SimpleSub
     # TODO: Use a persistent data structure instead of standard mutable Hash.
     alias Ctx = Hash(String, Type)
 
-    CTX_BUILTINS = Ctx.new # TODO: Add the builtin types.
-
     def initialize
       @next_var_uid = 0
+      @ctx_builtins = Ctx.new
+
+      # Set up the builtin named types known in the ambient context.
+      @ctx_builtins["true"] = TypePrimitive::BOOL
+      @ctx_builtins["false"] = TypePrimitive::BOOL
+      @ctx_builtins["not"] = TypeFunction.new(TypePrimitive::BOOL, TypePrimitive::BOOL)
     end
 
     private def fresh_var(level)
@@ -14,7 +18,7 @@ module SimpleSub
     end
 
     def infer_type(term : Term)
-      type_term(term, CTX_BUILTINS, 0)
+      type_term(term, @ctx_builtins, 0)
     end
 
     private def type_term(term : Term, ctx : Ctx, level : Int32) : Type
