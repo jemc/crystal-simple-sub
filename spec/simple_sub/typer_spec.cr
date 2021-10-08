@@ -14,5 +14,12 @@ describe Typer do
       .should have_type("((int -> α2) -> α2)")
     TermApp[TermLam["x", TermVar["x"]], TermLit[42]]
       .should have_type("int")
+    TermLam["f",
+      TermLam["x",
+        TermApp[TermVar["f"],
+          TermApp[TermVar["f"], TermVar["x"]]
+        ]
+      ]
+    ].should have_type("((α2 | α4 -> α4) -> (α2 -> α4))")
   end
 end

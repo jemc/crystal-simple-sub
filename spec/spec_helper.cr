@@ -23,12 +23,22 @@ class SimpleSub::TypeExpectation
     String.build { |io|
       pre_type = Typer.new.infer_type(term)
 
+      io << "\n\nThe type given by the initial typer was:\n"
       io << pre_type.show
 
       analysis = CompactType::Analysis.new
-      type = CompactType.from(pre_type, true, analysis)
+      polarity = true
+      type = CompactType.from(pre_type, polarity, analysis)
+      type.analyze_co_occurrences(polarity, analysis)
 
+      io << "\n\nThe variable bounds were:"
       analysis.show_all_vars(io)
+
+      io << "\n\nThe co-occurrences were:"
+      analysis.show_co_occurrences(io)
+
+      io << "\n\nThe initial compact type was:\n"
+      type.show(io)
     }
   end
 
@@ -40,10 +50,7 @@ class SimpleSub::TypeExpectation
     <<-MSG
     #{term.pretty_inspect}
 
-    ---
-
-    Prior to simplification, the type information was:
-    #{pre_simplification_type_information(term)}
+    ---#{pre_simplification_type_information(term)}
 
     ---
 

@@ -14,27 +14,36 @@ module SimpleSub
 
     def show; String.build { |io| show(io) } end
     def show(io : IO, polarity = true)
-      if (fn = @fn)
+      is_first = true
+      sep = polarity ? " | " : " & "
+
+      @prims.try(&.each { |x|
+        io << sep unless is_first; x.show(io); is_first = false
+      })
+
+      @vars.try(&.each { |x|
+        io << sep unless is_first; x.show(io); is_first = false
+      })
+
+      @fn.try { |fn|
+        io << sep unless is_first
         io << "("
-        fn[0].show(io)
+        fn[0].show(io, !polarity)
         # TODO: show more than one param
         io << " -> "
-        fn[-1].show(io)
+        fn[-1].show(io, polarity)
         io << ")"
-      elsif (rec = @rec)
-        raise NotImplementedError.new("show for #{inspect}")
-      elsif @prims || @vars
-        is_first = true
-        sep = polarity ? " | " : " & "
+        is_first = false
+      }
 
-        @prims.try(&.each { |x|
-          io << sep unless is_first; x.show(io); is_first = false
-        })
-        @vars.try(&.each { |x|
-          io << sep unless is_first; x.show(io); is_first = false
-        })
-      else
-        io << (polarity ? "T" : "⊥")
+      @rec.try { |rec|
+        io << sep unless is_first
+        raise NotImplementedError.new("show for #{inspect}")
+        is_first = false
+      }
+
+      if is_first
+        io << (polarity ? "⊥" : "T")
       end
     end
 
@@ -59,12 +68,27 @@ module SimpleSub
           io << "\n  :> ⊥" if var.lower_bounds.empty?
         }
       end
+
+      def show_co_occurrences(io : IO)
+        @co_occurrences.each { |key_tuple, others|
+          polarity, var = key_tuple
+
+          others.each { |other|
+            next if var == other
+            io << "\n  "
+            io << (polarity ? "+ " : "- ")
+            var.show(io)
+            io << " with "
+            other.show(io)
+          }
+        }
+      end
     end
 
     def self.from(
       input : Typer::Type,
-      polarity = true,
-      analysis = Analysis.new,
+      polarity : Bool,
+      analysis : Analysis,
       parents = Set(TypeVariable).new,
     ) : CompactType
       new.mutably_accept(input, polarity, analysis, parents)
@@ -79,16 +103,24 @@ module SimpleSub
       # TODO: Handle recursive and "in process", and "parents" cases.
       case input
       when TypePrimitive
+        # Accept this primitive as one of the prims in this CompactType node.
         (@prims ||= Set(TypePrimitive).new).not_nil!.add(input)
       when TypeFunction
-        @fn = [
-          self.class.from(input.param.value, !polarity, analysis),
-          self.class.from(input.ret.value, polarity, analysis),
-        ]
+        # The function return type has the same polarity as the function itself,
+        # whereas the parameter types are the opposite polarity.
+        fn = (@fn ||= [self.class.new, self.class.new])
+        fn[0] = fn[0].mutably_accept(input.param.value, !polarity, analysis)
+        fn[1] = fn[1].mutably_accept(input.ret.value, polarity, analysis)
       when TypeVariable
+        # Take note of this variable in the set of all vars we are collecting.
         analysis.all_vars.add(input)
 
+        # Accept this variable as one of the vars in this CompactType node.
         (@vars ||= Set(TypeVariable).new).not_nil!.add(input)
+
+        # Recurse into the relevant bounds of the variable.
+        # If flowing out (positive polarity), the lower bounds are the relevant.
+        # If flowing in (negative polarity), the upper bounds are the relevant.
         (
           polarity ? input.lower_bounds : input.upper_bounds
         ).try(&.each { |bound|
@@ -135,6 +167,67 @@ module SimpleSub
         var_substs[var] = nil
       }
 
+      # Mark variables for unification based on co-occurence analysis.
+      polarities = [true, false]
+      # TODO: Can we get rid of this reverse_each?
+      # Things shouldn't be order-dependent here...
+      analysis.all_vars.each.to_a.reverse_each { |var|
+        # Don't consider variables we've already decided to remove,
+        # or already decided to redirect to another unified variable
+        # (because we will get a separate chance to analyze the unified var.)
+        next if var_substs.has_key?(var)
+
+        polarities.each { |polarity|
+          analysis.co_occurrences[{polarity, var}].each { |other|
+            case other
+            when TypePrimitive
+              # If the variable co-occurs with a primitive in both polarities,
+              # the variable can be removed - the primitive is identical to it.
+              if analysis.co_occurrences[{!polarity, var}].includes?(other)
+                # Mark the variable as planned for removal.
+                var_substs[var] = nil
+              end
+            when TypeVariable
+              # Every variable co-occurs with itself, but that's useless to us.
+              next if var == other
+
+              # As before, don't consider vars already planned to remove/unify.
+              next if var_substs.has_key?(other)
+
+              # We cannot unify recursive and non-recursive variables,
+              # so if one is recursive and the other isn't, bail out here.
+              var_is_recursive = analysis.recursive_vars.includes?(var)
+              other_is_recursive = analysis.recursive_vars.includes?(other)
+              next if var_is_recursive != other_is_recursive
+
+              # If any occurrence of the other variable exists which
+              # doesn't co-occur with this variable, then we can't unify them.
+              next unless \
+                analysis.co_occurrences[{polarity, other}].includes?(var)
+
+              # We're ready to decide to unify them!
+              # Mark this variable as a substitute for the other.
+              var_substs[other] = var
+
+              if var_is_recursive
+                raise NotImplementedError.new("https://github.com/LPTK/simple-sub/blob/4cae4ee8b2b565fa2590bff9f1a1d171c8e0a5bd/shared/src/main/scala/simplesub/TypeSimplifier.scala#L261-L265")
+              else
+                # Because we're eliminating other, we need to filter the
+                # co-occurrences of
+                # TODO: More efficient "filter in place" mechanism for Set?
+                opp_occurs_var = analysis.co_occurrences[{!polarity, var}]
+                opp_occurs_other = analysis.co_occurrences[{!polarity, other}]
+                analysis.co_occurrences[{!polarity, var}] =
+                  opp_occurs_var.select { |t|
+                    t == var || opp_occurs_other.includes?(t)
+                  }.to_set
+              end
+            end
+          }
+        }
+      }
+
+      # Finally, perform the planned substitutions.
       type = type.mutably_perform_var_substs(var_substs)
 
       type
