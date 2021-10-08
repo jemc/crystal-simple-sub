@@ -15,6 +15,9 @@ module SimpleSub
     def show; String.build { |io| show(io) } end
     def show(io : IO, polarity = true)
       is_first = true
+
+      # Co-occurring types in positive polarity are in a union.
+      # Co-occurring types in negative polarity are in an intersection          .
       sep = polarity ? " | " : " & "
 
       @prims.try(&.each { |x|
@@ -42,8 +45,18 @@ module SimpleSub
         is_first = false
       }
 
+      # If we're still waiting for the first element, there are no elements.
+      # So we print the "top type" or "bottom type", depending on polarity.
       if is_first
-        io << (polarity ? "⊥" : "T")
+        if polarity
+          # In positive polarity (emitting a value), having no elements means
+          # no values are possible - the union of no possibilities.
+          io << "⊥" # this denotes the "bottom type"
+        else
+          # In negative polarity (accepting a value), having no elements means
+          # the value is totally unconstrained - intersection of no constraints.
+          io << "T" # this denotes the "top type"
+        end
       end
     end
 
@@ -169,9 +182,7 @@ module SimpleSub
 
       # Mark variables for unification based on co-occurence analysis.
       polarities = [true, false]
-      # TODO: Can we get rid of this reverse_each?
-      # Things shouldn't be order-dependent here...
-      analysis.all_vars.each.to_a.reverse_each { |var|
+      analysis.all_vars.each { |var|
         # Don't consider variables we've already decided to remove,
         # or already decided to redirect to another unified variable
         # (because we will get a separate chance to analyze the unified var.)
