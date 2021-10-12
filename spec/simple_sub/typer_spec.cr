@@ -42,6 +42,18 @@ describe Typer do
       TermLam["x", TermApp[TermVar["not"], TermVar["x"]]],
       TermVar["true"]
     ].should have_type("bool")
+    TermLam["x", TermLam["y", TermLam["z",
+      TermApp[
+        TermApp[
+          TermApp[
+            TermVar["if"],
+            TermVar["x"],
+          ],
+          TermVar["y"],
+        ],
+        TermVar["z"],
+      ]
+    ]]].should have_type("(bool -> (α7 -> (α7 -> α7)))")
 
     # TODO: The rest of these tests.
   end

@@ -4,13 +4,27 @@ module SimpleSub
     alias Ctx = Hash(String, Type)
 
     def initialize
-      @next_var_uid = 0
+      @next_var_uid = -1
       @ctx_builtins = Ctx.new
 
       # Set up the builtin named types known in the ambient context.
       @ctx_builtins["true"] = TypePrimitive::BOOL
       @ctx_builtins["false"] = TypePrimitive::BOOL
-      @ctx_builtins["not"] = TypeFunction.new(TypePrimitive::BOOL, TypePrimitive::BOOL)
+      @ctx_builtins["not"] = TypeFunction.new(
+        TypePrimitive::BOOL,
+        TypePrimitive::BOOL
+      )
+
+      if_value_type = fresh_var(1)
+      @ctx_builtins["if"] = TypePolymorphic.new(0,
+        TypeFunction.new(
+          TypePrimitive::BOOL,
+          TypeFunction.new(
+            if_value_type,
+            TypeFunction.new(if_value_type, if_value_type),
+          )
+        )
+      )
     end
 
     private def fresh_var(level)
@@ -21,14 +35,18 @@ module SimpleSub
       type_term(term, @ctx_builtins, 0)
     end
 
-    private def type_term(term : Term, ctx : Ctx, level : Int32) : Type
+    private def type_term(term : Term, ctx : Ctx, level : Int32) : SimpleType
       case term
       when TermLit
         TypePrimitive::INT
       when TermVar
-        ctx[term.name]? || raise Error.new(
-          "#{term.inspect} is not known within ctx: #{ctx.inspect}"
-        )
+        t = ctx[term.name]?
+
+        raise Error.new \
+          "#{term.inspect} is not known within ctx: #{ctx.inspect}" \
+            unless t
+
+        instantiated(t, level)
       when TermLam
         param_type = fresh_var(level)
         ret_type = type_term(
@@ -70,8 +88,8 @@ module SimpleSub
         # If both sides are functions, they are compatible if and only if
         # the return types and parameter types are compatible with one another.
         # Return types are covariant and parameter types are contravariant.
-        constrain(sub.ret.value, sup.ret.value)
-        constrain(sup.param.value, sub.param.value)
+        constrain(sub.ret, sup.ret)
+        constrain(sup.param, sub.param)
       # elsif sub.is_a?(TypeRecord) && sup.is_a?(TypeRecord)
       #   raise NotImplementedError.new("constrain TypeRecord")
       elsif sub.is_a?(TypeVariable) && sup.level <= sub.level
@@ -90,6 +108,52 @@ module SimpleSub
         raise NotImplementedError.new("constrain sup variable across levels")
       else
         raise NotImplementedError.new("need nice user-facing error here")
+      end
+    end
+
+    private def instantiated(t : Type, level : Int32) : SimpleType
+      case t
+      when TypePolymorphic then freshened_above(t.body, t.level, level)
+      when SimpleType      then t
+      else raise NotImplementedError.new("instantiated for #{t.show}")
+      end
+    end
+
+    private def freshened_above(
+      t : SimpleType,
+      limit : Int32,
+      fresh_level : Int32,
+      already_freshened = {} of TypeVariable => TypeVariable,
+    ) : SimpleType
+      return t if t.level <= limit
+
+      case t
+      when TypePrimitive then t
+      when TypeFunction
+        TypeFunction.new(
+          freshened_above(t.param, limit, fresh_level, already_freshened),
+          freshened_above(t.ret, limit, fresh_level, already_freshened),
+        )
+      when TypeVariable
+        already = already_freshened[t]?
+        return already if already
+
+        already_freshened[t] = var = fresh_var(fresh_level)
+
+        # We need to reverse before freshening so that the fresh variable
+        # creation order will happen in the same order as the originals,
+        # so that simplifying, which is order-dependent, can happen as intended.
+        # TODO: Create a specialized Array#map_backwards! method for efficiency.
+        var.lower_bounds = t.lower_bounds.reverse_each.map { |inner|
+          freshened_above(inner, limit, fresh_level, already_freshened)
+        }.to_a.reverse
+        var.upper_bounds = t.upper_bounds.reverse_each.map { |inner|
+          freshened_above(inner, limit, fresh_level, already_freshened)
+        }.to_a.reverse
+
+        var
+      else
+        raise NotImplementedError.new("freshened_above for #{t.show}")
       end
     end
   end

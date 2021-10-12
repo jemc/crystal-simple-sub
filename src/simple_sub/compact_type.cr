@@ -12,7 +12,7 @@ module SimpleSub
     def initialize(@vars = nil, @prims = nil, @rec = nil, @fn = nil)
     end
 
-    def show; String.build { |io| show(io) } end
+    def show(polarity = true); String.build { |io| show(io, polarity) } end
     def show(io : IO, polarity = true)
       is_first = true
 
@@ -122,8 +122,8 @@ module SimpleSub
         # The function return type has the same polarity as the function itself,
         # whereas the parameter types are the opposite polarity.
         fn = (@fn ||= [self.class.new, self.class.new])
-        fn[0] = fn[0].mutably_accept(input.param.value, !polarity, analysis)
-        fn[1] = fn[1].mutably_accept(input.ret.value, polarity, analysis)
+        fn[0] = fn[0].mutably_accept(input.param, !polarity, analysis)
+        fn[1] = fn[1].mutably_accept(input.ret, polarity, analysis)
       when TypeVariable
         # Take note of this variable in the set of all vars we are collecting.
         analysis.all_vars.add(input)
